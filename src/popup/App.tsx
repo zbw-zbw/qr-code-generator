@@ -176,18 +176,8 @@ function App() {
               onCopy={handleCopyDecodeResult}
               onOpenLink={handleOpenDecodeLink}
               onEditParams={handleEditDecodeParams}
+              onReDecode={() => setDecodeResult(null)}
             />
-          )}
-
-          {decodeResult && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <button
-                onClick={() => setDecodeResult(null)}
-                className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
-              >
-                重新解码
-              </button>
-            </div>
           )}
         </div>
       )}

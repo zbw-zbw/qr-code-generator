@@ -6,6 +6,7 @@ interface DecodeResultProps {
   onCopy: () => void
   onOpenLink: () => void
   onEditParams: () => void
+  onReDecode: () => void
 }
 
 const DecodeResult: React.FC<DecodeResultProps> = ({
@@ -13,6 +14,7 @@ const DecodeResult: React.FC<DecodeResultProps> = ({
   onCopy,
   onOpenLink,
   onEditParams,
+  onReDecode,
 }) => {
   const { content, type } = result
 
@@ -70,6 +72,13 @@ const DecodeResult: React.FC<DecodeResultProps> = ({
             编辑参数 Edit
           </button>
         )}
+
+        <button
+          onClick={onReDecode}
+          className="py-2 px-3 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
+        >
+          重新解码 Retry
+        </button>
       </div>
     </div>
   )
