@@ -1,6 +1,5 @@
 import React from 'react'
-
-export type Mode = 'generate' | 'decode'
+import { Mode } from '@/types'
 
 interface ModeSwitchProps {
   mode: Mode

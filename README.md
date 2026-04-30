@@ -1,6 +1,6 @@
 # qr-code-generator - 二维码生成浏览器插件
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-red.svg)
 
@@ -142,6 +142,11 @@ npm run type-check
 
 ```
 qr-code-generator/
+├── docs/                        # 项目文档
+│   ├── PRD.md                       # 产品需求文档
+│   ├── CHROME_STORE_GUIDE.md        # Chrome 商店发布指南
+│   ├── STORE_DESCRIPTION.md         # 商店描述文案
+│   └── CHANGELOG_TEMPLATE.md        # 更新日志模板
 ├── src/
 │   ├── popup/
 │   │   ├── components/          # React 组件
@@ -149,20 +154,24 @@ qr-code-generator/
 │   │   │   ├── URLInput.tsx         # URL输入框
 │   │   │   ├── URLParamsEditor.tsx  # 参数编辑器
 │   │   │   ├── ActionButtons.tsx    # 操作按钮
-│   │   │   ├── ModeSwitch.tsx       # 模式切换 🆕
-│   │   │   ├── QRCodeDecoder.tsx    # 二维码解码 🆕
-│   │   │   └── DecodeResult.tsx     # 解码结果 🆕
-│   │   ├── App.tsx             # 主应用组件
-│   │   ├── index.tsx           # 入口文件
-│   │   └── index.html          # HTML 模板
-│   ├── utils/
-│   │   └── chrome.ts           # Chrome API 工具函数
+│   │   │   ├── ModeSwitch.tsx       # 模式切换
+│   │   │   ├── QRCodeDecoder.tsx    # 二维码解码
+│   │   │   └── DecodeResult.tsx     # 解码结果
+│   │   ├── hooks/               # 自定义 React Hooks
+│   │   ├── App.tsx              # 主应用组件
+│   │   ├── index.tsx            # 入口文件
+│   │   └── index.html           # HTML 模板
+│   ├── types/                   # 共享类型定义
+│   │   └── index.ts
+│   ├── utils/                   # 工具函数
+│   │   ├── chrome.ts                # Chrome API 封装
+│   │   └── url.ts                   # URL 验证工具
 │   ├── styles/
-│   │   └── globals.css         # 全局样式（包含滚动条优化）
-│   └── manifest.json           # 扩展配置文件
-├── public/
-│   ├── icons/                  # 扩展图标（16,32,48,128px）
-│   └── icon.svg                # 源SVG图标
+│   │   └── globals.css          # 全局样式
+│   └── manifest.json            # 扩展配置文件（Manifest V3）
+├── CHANGELOG.md                 # 版本更新日志
+├── LICENSE                      # MIT 许可证
+├── README.md
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
@@ -248,4 +257,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**qr-code-generator v1.0.3** - 让二维码处理更智能、更高效！ 🎉 
+**qr-code-generator v1.1.0** - 让二维码处理更智能、更高效！ 🎉 

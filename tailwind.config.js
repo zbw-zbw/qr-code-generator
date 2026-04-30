@@ -7,11 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
+        brand: {
+          purple: '#667eea',
+          violet: '#764ba2',
+          green: '#11998e',
+          mint: '#38ef7d',
+          pink: '#ec4899',
+          lavender: '#a855f7',
         }
       }
     },

@@ -1,4 +1,34 @@
-# Smart QR Code Plus 更新日志
+# QR Code Generator 更新日志
+
+## v1.1.0 - 2026-04-30 🏗️
+
+### 🔧 代码架构重构
+
+#### 工程化优化
+- **路径别名**：全部组件改为 `@/` 路径别名导入，代码更清晰
+- **共享类型**：抽取 `src/types/index.ts`，集中管理 URLParam、DecodeResult、Mode 等类型
+- **自定义 Hooks**：从 App.tsx 抽取 `useSmartUrlLoader` 和 `useUrlParams`，职责分离
+- **ESLint + Prettier**：新增完整的代码规范配置
+- **Vite 构建优化**：修复 mode 硬编码，生产构建自动移除 console、启用 terser 压缩
+- **CSS 变量化**：品牌色抽为 CSS 自定义属性，全局统一管理
+
+#### 🐛 Bug 修复
+- **修复 URL 参数双重编码**：`rebuildURL` 中移除多余的 `encodeURIComponent`，避免参数被编码两次
+- **修复 Vite 生产构建**：crx 插件 mode 不再硬编码为 development
+
+#### 🎨 UI/样式统一
+- **按钮系统重构**：全局按钮统一为紫色渐变主题，2×2 网格布局
+- **解码页面优化**：增加内容高度，补充完整的格式说明（中英文）
+- **拖拽上传支持**：解码模式新增 Drag & Drop 功能
+- **URL 协议校验**：`isValidUrl` 增加安全协议白名单
+
+#### 📂 项目结构优化
+- **文档整理**：冗余文档移入 `docs/` 目录，删除重复文件
+- **补充 LICENSE**：新增 MIT License 文件
+- **统一项目命名**：package.json name 与仓库名对齐
+- **README 更新**：项目结构描述与实际文件完全匹配
+
+---
 
 ## v1.0.1 - 2025-07-17 🎨
 

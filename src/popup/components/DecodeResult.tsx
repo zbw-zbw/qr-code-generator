@@ -1,5 +1,5 @@
 import React from 'react'
-import { DecodeResult as DecodeResultType } from './QRCodeDecoder'
+import { DecodeResult as DecodeResultType } from '@/types'
 
 interface DecodeResultProps {
   result: DecodeResultType
@@ -8,88 +8,68 @@ interface DecodeResultProps {
   onEditParams: () => void
 }
 
-const DecodeResult: React.FC<DecodeResultProps> = ({ 
-  result, 
-  onCopy, 
-  onOpenLink, 
-  onEditParams 
+const DecodeResult: React.FC<DecodeResultProps> = ({
+  result,
+  onCopy,
+  onOpenLink,
+  onEditParams,
 }) => {
   const { content, type } = result
 
   return (
-    <div className="space-y-4">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-center space-x-2 mb-3">
-          <div className="text-green-600 text-lg">✅</div>
-          <h3 className="text-sm font-medium text-green-800">解码成功 Decode Success</h3>
+    <div className="space-y-3">
+      {/* 解码成功卡片 */}
+      <div className="param-item p-3">
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="text-xs font-semibold text-gray-700">解码成功 Decoded</span>
+          <span className={`ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            type === 'url'
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {type === 'url' ? 'URL' : 'TEXT'}
+          </span>
         </div>
 
-        <div className="space-y-3">
-          {/* 内容类型 */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-medium text-gray-500">类型 Type:</span>
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              type === 'url'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-gray-800'
-            }`}>
-              {type === 'url' ? '🔗 网址链接 URL' : '📝 纯文本 Text'}
-            </span>
-          </div>
-
-          {/* 解码内容 */}
-          <div className="space-y-2">
-            <span className="text-xs font-medium text-gray-500">内容 Content:</span>
-            <div className="p-3 bg-white border border-gray-200 rounded-md">
-              <div className="text-sm text-gray-800 break-all font-mono">
-                {content}
-              </div>
-            </div>
-          </div>
+        {/* 解码内容 */}
+        <div className="p-2.5 bg-white border border-gray-100 rounded-lg">
+          <p className="text-xs text-gray-800 break-all font-mono leading-relaxed">
+            {content}
+          </p>
         </div>
       </div>
 
       {/* 操作按钮 */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          {/* 复制按钮 */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={onCopy}
+          className="py-2 px-3 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
+        >
+          复制内容 Copy
+        </button>
+
+        {type === 'url' && (
           <button
-            onClick={onCopy}
-            className="btn-decode-copy"
+            onClick={onOpenLink}
+            className="py-2 px-3 text-xs font-semibold text-white bg-gradient-to-r from-purple-500 to-purple-700 rounded-lg hover:from-purple-600 hover:to-purple-800 transition-all"
           >
-            <span>📋</span>
-            <span>复制内容 Copy</span>
+            打开链接 Open
           </button>
+        )}
 
-          {/* 打开链接按钮 - 仅对URL显示 */}
-          {type === 'url' && (
-            <button
-              onClick={onOpenLink}
-              className="btn-decode-open"
-            >
-              <span>🔗</span>
-              <span>打开链接 Open</span>
-            </button>
-          )}
-        </div>
-
-        {/* 编辑参数按钮 - 仅对URL显示 */}
         {type === 'url' && (
           <button
             onClick={onEditParams}
-            className="btn-decode-edit"
+            className="py-2 px-3 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all"
           >
-            <span>⚙️</span>
-            <span>编辑URL参数 Edit Parameters</span>
+            编辑参数 Edit
           </button>
         )}
-      </div>
-
-      {/* 提示信息 */}
-      <div className="text-xs text-gray-500 text-center">
-        {type === 'url'
-          ? '点击"编辑URL参数"可切换到生成模式继续编辑\nClick "Edit Parameters" to switch to generate mode'
-          : '纯文本内容已解码完成\nText content decoded successfully'}
       </div>
     </div>
   )

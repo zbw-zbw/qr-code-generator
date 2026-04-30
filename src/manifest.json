@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QR Code Generator & Scanner - URL Editor",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Generate & decode QR codes (PNG/JPG/WebP/SVG). Visual URL parameter editor. 100% offline, no ads.",
   "permissions": [
     "activeTab",

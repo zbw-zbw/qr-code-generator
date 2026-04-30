@@ -1,154 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import QRCodeDisplay from './components/QRCodeDisplay'
 import URLInput from './components/URLInput'
 import URLParamsEditor from './components/URLParamsEditor'
 import ActionButtons from './components/ActionButtons'
-import ModeSwitch, { Mode } from './components/ModeSwitch'
+import ModeSwitch from './components/ModeSwitch'
 import QRCodeDecoder from './components/QRCodeDecoder'
 import DecodeResult from './components/DecodeResult'
-import { DecodeResult as DecodeResultType } from './components/QRCodeDecoder'
-import { getCurrentTabUrl } from '../utils/chrome'
-
-export interface URLParam {
-  key: string
-  value: string
-}
+import { URLParam, DecodeResult as DecodeResultType, Mode } from '@/types'
+import { useUrlParams } from './hooks/useUrlParams'
+import { useSmartUrlLoader } from './hooks/useSmartUrlLoader'
 
 function App() {
   const [mode, setMode] = useState<Mode>('generate')
-  const [currentUrl, setCurrentUrl] = useState<string>('')
-  const [params, setParams] = useState<URLParam[]>([])
-  const [originalUrl, setOriginalUrl] = useState<string>('')
   const [decodeResult, setDecodeResult] = useState<DecodeResultType | null>(null)
-  const [cachedData, setCachedData] = useState<{ url: string; params: URLParam[] } | null>(null)
-  const [showRestoreHint, setShowRestoreHint] = useState(false)
 
-  // 智能加载：优先使用当前页面URL，检测缓存差异
-  useEffect(() => {
-    const smartLoad = async () => {
-      try {
-        // 1. 先获取当前标签页 URL
-        const currentTabUrl = await getCurrentTabUrl()
-        console.log('📍 当前页面URL:', currentTabUrl)
+  const { params, setParams, parseURLParams, rebuildURL } = useUrlParams()
 
-        // 2. 检查缓存
-        let cachedUrl = ''
-        let cachedParams: URLParam[] = []
+  const handleUrlLoaded = useCallback((url: string) => {
+    parseURLParams(url)
+  }, [parseURLParams])
 
-        if (typeof chrome !== 'undefined' && chrome.storage) {
-          const result = await chrome.storage.local.get(['cachedUrl', 'cachedParams'])
-          console.log('📦 读取缓存:', result)
-
-          if (result.cachedUrl) {
-            cachedUrl = result.cachedUrl
-            cachedParams = result.cachedParams || []
-          }
-        }
-
-        // 3. 智能判断使用哪个URL
-        if (currentTabUrl) {
-          // 如果当前页面URL与缓存URL相同，使用缓存（保留编辑状态）
-          if (cachedUrl && currentTabUrl === cachedUrl) {
-            console.log('✅ 当前页面与缓存相同，使用缓存数据')
-            setCurrentUrl(cachedUrl)
-            setOriginalUrl(cachedUrl)
-            setParams(cachedParams.length > 0 ? cachedParams : [])
-            if (cachedParams.length === 0) {
-              parseURLParams(cachedUrl)
-            }
-          } else {
-            // 如果不同，优先使用当前页面URL
-            console.log('🔄 使用当前页面URL')
-            setCurrentUrl(currentTabUrl)
-            setOriginalUrl(currentTabUrl)
-            parseURLParams(currentTabUrl)
-
-            // 如果有缓存且与当前页面不同，保存缓存数据并显示恢复提示
-            if (cachedUrl && cachedUrl !== currentTabUrl) {
-              console.log('💾 检测到不同的缓存，显示恢复提示')
-              setCachedData({ url: cachedUrl, params: cachedParams })
-              setShowRestoreHint(true)
-            }
-          }
-        } else if (cachedUrl) {
-          // 如果无法获取当前页面URL，使用缓存
-          console.log('⚠️ 无法获取当前页面URL，使用缓存')
-          setCurrentUrl(cachedUrl)
-          setOriginalUrl(cachedUrl)
-          setParams(cachedParams)
-        }
-      } catch (error) {
-        console.error('❌ 智能加载失败:', error)
-      }
-    }
-
-    smartLoad()
-  }, [])
-
-  // 缓存当前 URL 和参数
-  useEffect(() => {
-    if (currentUrl && typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({
-        cachedUrl: currentUrl,
-        cachedParams: params
-      }).then(() => {
-        console.log('✅ 缓存成功:', { url: currentUrl, paramsCount: params.length })
-      }).catch((error) => {
-        console.error('❌ 缓存失败:', error)
-      })
-    }
-  }, [currentUrl, params])
-
-  // 解析 URL 参数，支持自动 decode
-  const parseURLParams = (url: string) => {
-    try {
-      const urlObj = new URL(url)
-      const searchParams = urlObj.searchParams
-      const paramsList: URLParam[] = []
-
-      searchParams.forEach((value, key) => {
-        try {
-          // 尝试解码参数值，如果已经解码则保持原样
-          const decodedValue = decodeURIComponent(value)
-          paramsList.push({
-            key: decodeURIComponent(key),
-            value: decodedValue
-          })
-        } catch {
-          // 如果解码失败，使用原始值
-          paramsList.push({ key, value })
-        }
-      })
-
-      setParams(paramsList)
-    } catch (error) {
-      console.error('Invalid URL:', error)
-      setParams([])
-    }
-  }
-
-  // 重新构建 URL，自动 encode 参数
-  const rebuildURL = (newParams: URLParam[]) => {
-    try {
-      const urlObj = new URL(currentUrl)
-      urlObj.search = ''
-
-      newParams.forEach(param => {
-        if (param.key.trim() && param.value.trim()) {
-          // 自动编码参数键值
-          urlObj.searchParams.append(
-            encodeURIComponent(param.key.trim()),
-            encodeURIComponent(param.value.trim())
-          )
-        }
-      })
-
-      return urlObj.toString()
-    } catch (error) {
-      console.error('Error rebuilding URL:', error)
-      return currentUrl
-    }
-  }
+  const {
+    currentUrl,
+    setCurrentUrl,
+    originalUrl,
+    setOriginalUrl,
+    cachedData,
+    showRestoreHint,
+    restoreCached,
+    dismissRestore,
+  } = useSmartUrlLoader(handleUrlLoaded, params)
 
   // 更新 URL
   const handleUrlChange = (newUrl: string) => {
@@ -159,7 +40,7 @@ function App() {
   // 更新参数
   const handleParamsChange = (newParams: URLParam[]) => {
     setParams(newParams)
-    const newUrl = rebuildURL(newParams)
+    const newUrl = rebuildURL(currentUrl, newParams)
     setCurrentUrl(newUrl)
   }
 
@@ -172,7 +53,6 @@ function App() {
   // 处理模式切换
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode)
-    // 切换到解码模式时清除之前的解码结果
     if (newMode === 'decode') {
       setDecodeResult(null)
     }
@@ -197,35 +77,23 @@ function App() {
     }
   }
 
-  // 处理编辑解码的URL参数
+  // 处理编辑解码的 URL 参数
   const handleEditDecodeParams = () => {
     if (decodeResult && decodeResult.type === 'url') {
-      // 切换到生成模式并设置URL
       setMode('generate')
       setCurrentUrl(decodeResult.content)
       setOriginalUrl(decodeResult.content)
       parseURLParams(decodeResult.content)
-      // 清除解码结果
       setDecodeResult(null)
     }
   }
 
   // 恢复上次编辑的内容
   const handleRestoreCached = () => {
+    restoreCached()
     if (cachedData) {
-      console.log('🔄 恢复缓存数据')
-      setCurrentUrl(cachedData.url)
-      setOriginalUrl(cachedData.url)
       setParams(cachedData.params)
-      setShowRestoreHint(false)
-      setCachedData(null)
     }
-  }
-
-  // 关闭恢复提示
-  const handleDismissRestore = () => {
-    setShowRestoreHint(false)
-    setCachedData(null)
   }
 
   return (
@@ -262,7 +130,7 @@ function App() {
                       恢复编辑 Restore
                     </button>
                     <button
-                      onClick={handleDismissRestore}
+                      onClick={dismissRestore}
                       className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
                     >
                       忽略 Dismiss
@@ -315,12 +183,9 @@ function App() {
             <div className="mt-3 pt-3 border-t border-gray-100">
               <button
                 onClick={() => setDecodeResult(null)}
-                className="btn-decode-back"
+                className="px-3 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="font-semibold">重新解码 Decode Again</span>
+                重新解码
               </button>
             </div>
           )}

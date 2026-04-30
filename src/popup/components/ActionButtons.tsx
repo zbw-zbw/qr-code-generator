@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import QRCode from 'qrcode'
-import { copyToClipboard, downloadFile } from '../../utils/chrome'
+import { copyToClipboard, downloadFile } from '@/utils/chrome'
 
 interface ActionButtonsProps {
   url: string
@@ -77,51 +77,35 @@ const ActionButtons = ({ url, onReset, hasChanges }: ActionButtonsProps) => {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={handleCopyUrl}
-          className="btn-copy btn-icon"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          <span className="font-semibold">{copyStatus.url ? '已复制 Copied!' : '复制链接 Copy URL'}</span>
-        </button>
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        onClick={handleCopyUrl}
+        className="py-2 px-3 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
+      >
+        {copyStatus.url ? '已复制 ✓' : '复制链接 Copy URL'}
+      </button>
 
-        <button
-          onClick={handleCopyQRCode}
-          className="btn-copy-qr btn-icon"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <span className="font-semibold">{copyStatus.qrcode ? '已复制 Copied!' : '复制码图 Copy QR'}</span>
-        </button>
-      </div>
+      <button
+        onClick={handleCopyQRCode}
+        className="py-2 px-3 text-xs font-semibold text-white bg-gradient-to-r from-purple-500 to-purple-700 rounded-lg hover:from-purple-600 hover:to-purple-800 transition-all"
+      >
+        {copyStatus.qrcode ? '已复制 ✓' : '复制码图 Copy QR'}
+      </button>
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={handleDownloadQRCode}
-          className="btn-download btn-icon"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          <span className="font-semibold">下载码图 Download</span>
-        </button>
+      <button
+        onClick={handleDownloadQRCode}
+        className="py-2 px-3 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all"
+      >
+        下载码图 Download
+      </button>
 
-        <button
-          onClick={onReset}
-          disabled={!hasChanges}
-          className="btn-reset btn-icon"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span className="font-semibold">重置 Reset</span>
-        </button>
-      </div>
+      <button
+        onClick={onReset}
+        disabled={!hasChanges}
+        className="py-2 px-3 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        重置 Reset
+      </button>
     </div>
   )
 }

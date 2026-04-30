@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { isValidUrl } from '@/utils/url'
 
 interface URLInputProps {
   url: string
@@ -7,15 +8,6 @@ interface URLInputProps {
 
 const URLInput = ({ url, onChange }: URLInputProps) => {
   const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  const isValidUrl = (str: string) => {
-    try {
-      new URL(str)
-      return true
-    } catch {
-      return false
-    }
-  }
 
   // 实时更新URL
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

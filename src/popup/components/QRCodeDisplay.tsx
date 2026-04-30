@@ -1,19 +1,11 @@
 import { QRCodeSVG } from 'qrcode.react'
+import { isValidUrl } from '@/utils/url'
 
 interface QRCodeDisplayProps {
   url: string
 }
 
 const QRCodeDisplay = ({ url }: QRCodeDisplayProps) => {
-  const isValidUrl = (str: string) => {
-    try {
-      new URL(str)
-      return true
-    } catch {
-      return false
-    }
-  }
-
   if (!url || !isValidUrl(url)) {
     return (
       <div className="w-full bg-gray-50 rounded-xl p-6 flex items-center justify-center">

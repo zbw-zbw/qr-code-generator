@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { URLParam } from '../App'
+import { URLParam } from '@/types'
 
 interface URLParamsEditorProps {
   params: URLParam[]
@@ -9,16 +9,13 @@ interface URLParamsEditorProps {
 const URLParamsEditor = ({ params, onChange }: URLParamsEditorProps) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingValues, setEditingValues] = useState<{ key: string; value: string }>({ key: '', value: '' })
-  const [_originalValue, setOriginalValue] = useState<{ key: string; value: string }>({ key: '', value: '' })
   const [newParam, setNewParam] = useState({ key: '', value: '' })
   const [showAddForm, setShowAddForm] = useState(false)
 
-  // 开始编辑时保存原始值
   useEffect(() => {
     if (editingIndex !== null && params[editingIndex]) {
       const param = params[editingIndex]
       setEditingValues({ key: param.key, value: param.value })
-      setOriginalValue({ key: param.key, value: param.value })
     }
   }, [editingIndex, params])
 
