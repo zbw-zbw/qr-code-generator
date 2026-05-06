@@ -5,7 +5,6 @@
   "description": "Generate & decode QR codes (PNG/JPG/WebP/SVG). Visual URL parameter editor. 100% offline, no ads.",
   "permissions": [
     "activeTab",
-    "clipboardRead",
     "storage"
   ],
   "icons": {
