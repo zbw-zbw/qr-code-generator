@@ -1,12 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "QR Code Generator & Scanner - URL Editor",
-  "version": "1.1.0",
-  "description": "Generate & decode QR codes (PNG/JPG/WebP/SVG). Visual URL parameter editor. 100% offline, no ads.",
+  "name": "QR Code Generator & Scanner - Logo, Offline & Free",
+  "version": "1.2.1",
+  "description": "Free QR code generator & scanner with logo embedding, custom colors, URL editor, history. 100% offline, no ads, no sign-up.",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "contextMenus"
   ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "commands": {
+    "_execute_action": {
+      "description": "Open QR Code Generator",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Q",
+        "mac": "Command+Shift+Q"
+      }
+    }
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -15,7 +29,7 @@
   },
   "action": {
     "default_popup": "src/popup/index.html",
-    "default_title": "QR Code Generator & Scanner - URL Editor",
+    "default_title": "QR Code Generator & Scanner",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -23,4 +37,4 @@
       "128": "icons/icon-128.png"
     }
   }
-} 
+}

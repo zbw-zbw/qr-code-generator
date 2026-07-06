@@ -1,226 +1,177 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { URLParam } from '@/types'
+import { t } from '@/utils/i18n'
 
-interface URLParamsEditorProps {
-  params: URLParam[]
-  onChange: (params: URLParam[]) => void
+function isJSON(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false
+  try { JSON.parse(trimmed); return true } catch { return false }
 }
 
-const URLParamsEditor = ({ params, onChange }: URLParamsEditorProps) => {
+function formatJSON(value: string): string {
+  try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value }
+}
+
+const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (params: URLParam[]) => void }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const [editingValues, setEditingValues] = useState<{ key: string; value: string }>({ key: '', value: '' })
+  const [editingValues, setEditingValues] = useState({ key: '', value: '' })
+  const [editIsComplex, setEditIsComplex] = useState(false)
+  const [jsonError, setJsonError] = useState(false)
   const [newParam, setNewParam] = useState({ key: '', value: '' })
   const [showAddForm, setShowAddForm] = useState(false)
 
-  useEffect(() => {
-    if (editingIndex !== null && params[editingIndex]) {
-      const param = params[editingIndex]
-      setEditingValues({ key: param.key, value: param.value })
-    }
-  }, [editingIndex, params])
-
-  const handleEditParamChange = (field: 'key' | 'value', value: string) => {
-    setEditingValues(prev => ({ ...prev, [field]: value }))
+  const startEdit = (index: number) => {
+    const p = params[index]
+    const complex = isJSON(p.value)
+    setEditingIndex(index)
+    setEditIsComplex(complex)
+    setJsonError(false)
+    setEditingValues({ key: p.key, value: complex ? formatJSON(p.value) : p.value })
   }
 
-  // 保存编辑修改
+  const handleValueChange = (val: string) => {
+    setEditingValues(p => ({ ...p, value: val }))
+    if (editIsComplex) {
+      try { JSON.parse(val.trim()); setJsonError(false) } catch { setJsonError(true) }
+    }
+  }
+
   const saveEdit = () => {
     if (editingIndex !== null) {
-      const newParams = [...params]
-      newParams[editingIndex] = { ...newParams[editingIndex], ...editingValues }
-      onChange(newParams)
-    }
-    setEditingIndex(null)
-  }
-
-  // 取消编辑，恢复原始值
-  const cancelEdit = () => {
-    setEditingIndex(null)
-  }
-
-  // 处理键盘事件
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      saveEdit()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      cancelEdit()
-    }
-  }
-
-  // 处理失去焦点
-  const handleBlur = () => {
-    // 延迟检查，避免在两个输入框之间切换时误触发
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      const isInputFocused = activeElement?.tagName === 'INPUT'
-      // 如果焦点移到了另一个输入框，不执行任何操作
-      if (isInputFocused) {
-        return
+      const next = [...params]
+      let val = editingValues.value
+      if (editIsComplex && !jsonError) {
+        try { val = JSON.stringify(JSON.parse(val)) } catch { /* keep */ }
       }
-      // 焦点完全移出表单后，保存编辑
-      saveEdit()
-    }, 0)
+      next[editingIndex] = { key: editingValues.key, value: val }
+      onChange(next)
+    }
+    setEditingIndex(null)
+    setEditIsComplex(false)
+    setJsonError(false)
   }
 
   const handleDeleteParam = (index: number) => {
-    const newParams = params.filter((_, i) => i !== index)
-    onChange(newParams)
+    if (editingIndex === index) { setEditingIndex(null); setEditIsComplex(false); setJsonError(false) }
+    else if (editingIndex !== null && editingIndex > index) setEditingIndex(editingIndex - 1)
+    onChange(params.filter((_, i) => i !== index))
   }
 
   const handleAddParam = () => {
-    if (newParam.key.trim() && newParam.value.trim()) {
-      onChange([...params, { key: newParam.key.trim(), value: newParam.value.trim() }])
+    if (newParam.key.trim()) {
+      let val = newParam.value.trim()
+      if (isJSON(val)) try { val = JSON.stringify(JSON.parse(val)) } catch { /* keep */ }
+      onChange([...params, { key: newParam.key.trim(), value: val }])
       setNewParam({ key: '', value: '' })
       setShowAddForm(false)
     }
   }
 
-  // 处理添加参数的键盘事件
-  const handleAddKeyDown = (e: React.KeyboardEvent, field: 'key' | 'value') => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.stopPropagation()
-      if (field === 'key' && newParam.key.trim()) {
-        const valueInput = e.currentTarget.parentElement?.parentElement?.querySelector('input[placeholder*="Value"]') as HTMLInputElement
-        valueInput?.focus()
-      } else if (field === 'value' && newParam.key.trim() && newParam.value.trim()) {
-        handleAddParam()
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      handleCancelAdd()
-    }
-  }
+  const inputCls = "w-full px-2.5 py-1.5 text-xs rounded-xl font-mono focus:outline-none"
+  const inputStyle = { border: '1px solid var(--color-border)', background: 'var(--color-card)' }
 
-  const handleCancelAdd = () => {
-    setNewParam({ key: '', value: '' })
-    setShowAddForm(false)
-  }
+  const iconBtn = (onClick: () => void, icon: string, hoverColor: string, title: string) => (
+    <button onClick={onClick} className="p-1.5 rounded-lg transition-colors" title={title}
+      style={{ color: 'var(--color-text-muted)' }}
+      onMouseEnter={e => { e.currentTarget.style.color = hoverColor; e.currentTarget.style.background = 'var(--color-muted-bg)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
+      </svg>
+    </button>
+  )
 
-  // 处理添加参数失去焦点
-  const handleAddBlur = () => {
-    // 延迟检查，避免在两个输入框之间切换时误触发
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      const isInputFocused = activeElement?.tagName === 'INPUT'
-      // 如果焦点移到了另一个输入框，不执行任何操作
-      if (isInputFocused) {
-        return
-      }
-      // 焦点完全移出表单后，根据内容决定是添加还是取消
-      if (newParam.key.trim() && newParam.value.trim()) {
-        handleAddParam()
-      } else {
-        handleCancelAdd()
-      }
-    }, 0)
-  }
+  const editRows = editIsComplex ? Math.min(Math.max(editingValues.value.split('\n').length + 1, 4), 12) : 3
 
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold gradient-text">参数列表 Parameters</h3>
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-muted)' }}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          {t('params.title')}
+        </h3>
         {params.length > 0 && (
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-            {params.length} 个参数 params
+          <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-secondary)' }}>
+            {t('params.count', { count: params.length })}
           </span>
         )}
       </div>
 
-      {params.length === 0 && !showAddForm && (
-        <div className="text-xs text-gray-400 text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-          暂无参数，点击下方按钮添加<br/>No parameters, click below to add
-        </div>
-      )}
-
       <div className="space-y-2">
         {params.map((param, index) => (
-          <div key={index} className="param-item">
+          <div key={`${param.key}-${index}`} className="param-item">
             {editingIndex === index ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <label className="label-primary w-10 flex-shrink-0">Key</label>
-                  <input
-                    type="text"
-                    value={editingValues.key}
-                    onChange={(e) => handleEditParamChange('key', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-transparent focus:ring-2 focus:ring-purple-400 font-mono"
-                    placeholder="参数键 Key"
-                    autoFocus
-                  />
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Key</label>
+                  <input type="text" value={editingValues.key}
+                    onChange={e => setEditingValues(p => ({ ...p, key: e.target.value }))}
+                    className={inputCls} style={inputStyle} autoFocus />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="label-primary w-10 flex-shrink-0">Value</label>
-                  <input
-                    type="text"
-                    value={editingValues.value}
-                    onChange={(e) => handleEditParamChange('value', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-transparent focus:ring-2 focus:ring-purple-400 font-mono"
-                    placeholder="参数值 Value"
-                  />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Value</label>
+                    {editIsComplex && jsonError && (
+                      <span className="text-xs" style={{ color: 'var(--color-error)' }}>JSON 格式无效</span>
+                    )}
+                  </div>
+                  <textarea value={editingValues.value}
+                    onChange={e => handleValueChange(e.target.value)}
+                    className={`${inputCls} resize-none`}
+                    style={{
+                      ...inputStyle,
+                      borderColor: editIsComplex && jsonError ? 'var(--color-error)' : 'var(--color-border)',
+                    }}
+                    rows={editRows} />
                 </div>
-                <div className="text-xs text-gray-400 flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd>
-                  <span>保存 Save</span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs ml-2">Esc</kbd>
-                  <span>取消 Cancel</span>
+                <div className="flex items-center gap-2 justify-end">
+                  <button onClick={() => { setEditingIndex(null); setEditIsComplex(false); setJsonError(false) }}
+                    className="px-2.5 py-1 text-xs font-medium rounded-xl transition-colors"
+                    style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>
+                    {t('params.cancel')}
+                  </button>
+                  <button onClick={saveEdit}
+                    className="px-2.5 py-1 text-xs font-medium text-white rounded-xl hover:opacity-90 transition-colors"
+                    style={{ background: 'var(--color-primary)' }}>
+                    {t('params.save')}
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono font-semibold text-gray-800 break-all">
-                      {param.key}
-                    </span>
-                    <span className="text-gray-300">=</span>
-                    <span className="text-xs font-mono text-gray-600 break-all">
-                      {param.value}
-                    </span>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-semibold break-all" style={{ color: 'var(--color-text)' }}>{param.key}</span>
+                  <div className="flex gap-0.5 flex-shrink-0 ml-2">
+                    {iconBtn(() => startEdit(index),
+                      "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+                      'var(--color-primary)', t('params.edit'))}
+                    {iconBtn(() => handleDeleteParam(index),
+                      "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+                      'var(--color-error)', t('params.delete'))}
                   </div>
-                  {(() => {
-                    try {
-                      const decoded = decodeURIComponent(param.value)
-                      return decoded !== param.value && (
-                        <div className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded inline-block">
-                          解码 Decoded: {decoded}
-                        </div>
-                      )
-                    } catch {
-                      return null
-                    }
-                  })()}
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => setEditingIndex(index)}
-                    className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-all"
-                    title="编辑 Edit"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteParam(index)}
-                    className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
-                    title="删除 Delete"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                {isJSON(param.value) ? (
+                  <pre className="text-xs font-mono break-all whitespace-pre-wrap w-full mt-1.5 p-2.5 rounded-xl leading-relaxed"
+                    style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                    {formatJSON(param.value)}
+                  </pre>
+                ) : (() => {
+                  try {
+                    const decoded = decodeURIComponent(param.value)
+                    if (decoded !== param.value) return (
+                      <div className="flex items-start gap-1.5 flex-wrap mt-1">
+                        <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium flex-shrink-0"
+                          style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-muted)' }}>{t('params.decoded')}</span>
+                        <span className="text-xs font-mono break-all whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{decoded}</span>
+                      </div>
+                    )
+                  } catch { /* noop */ }
+                  return (
+                    <p className="text-xs font-mono break-all mt-1" style={{ color: 'var(--color-text-secondary)' }}>{param.value}</p>
+                  )
+                })()}
               </div>
             )}
           </div>
@@ -228,53 +179,48 @@ const URLParamsEditor = ({ params, onChange }: URLParamsEditorProps) => {
       </div>
 
       {showAddForm ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="label-primary w-10 flex-shrink-0">Key</label>
-            <input
-              type="text"
-              value={newParam.key}
-              onChange={(e) => setNewParam({ ...newParam, key: e.target.value })}
-              onKeyDown={(e) => handleAddKeyDown(e, 'key')}
-              onBlur={handleAddBlur}
-              placeholder="参数键 Key"
-              className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-transparent focus:ring-2 focus:ring-purple-400 font-mono"
-              autoFocus
-            />
+        <div className="param-item space-y-2">
+          <div>
+            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Key</label>
+            <input type="text" value={newParam.key}
+              onChange={e => setNewParam(p => ({ ...p, key: e.target.value }))}
+              placeholder={t('params.keyPlaceholder')} autoFocus
+              className={inputCls} style={inputStyle} />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="label-primary w-10 flex-shrink-0">Value</label>
-            <input
-              type="text"
-              value={newParam.value}
-              onChange={(e) => setNewParam({ ...newParam, value: e.target.value })}
-              onKeyDown={(e) => handleAddKeyDown(e, 'value')}
-              onBlur={handleAddBlur}
-              placeholder="参数值 Value"
-              className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-transparent focus:ring-2 focus:ring-purple-400 font-mono"
-            />
+          <div>
+            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Value</label>
+            <textarea value={newParam.value}
+              onChange={e => setNewParam(p => ({ ...p, value: e.target.value }))}
+              placeholder={t('params.valuePlaceholder')} rows={3}
+              className={`${inputCls} resize-none`} style={inputStyle} />
           </div>
-          <div className="text-xs text-gray-400 flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd>
-            <span>添加 Add</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs ml-2">Esc</kbd>
-            <span>取消 Cancel</span>
+          <div className="flex items-center gap-2 justify-end">
+            <button onClick={() => { setNewParam({ key: '', value: '' }); setShowAddForm(false) }}
+              className="px-2.5 py-1 text-xs font-medium rounded-xl transition-colors"
+              style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>
+              {t('params.cancel')}
+            </button>
+            <button onClick={handleAddParam} disabled={!newParam.key.trim()}
+              className="px-2.5 py-1 text-xs font-medium text-white rounded-xl disabled:opacity-40 hover:opacity-90 transition-colors"
+              style={{ background: 'var(--color-primary)' }}>
+              {t('params.addParam')}
+            </button>
           </div>
         </div>
       ) : (
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="w-full py-2 text-xs font-medium text-purple-600 border-2 border-purple-200 border-dashed rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-all flex items-center justify-center gap-1.5"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        <button onClick={() => setShowAddForm(true)}
+          className="w-full py-2 text-xs font-medium rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-dashed"
+          style={{ color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.color = 'var(--color-primary)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-secondary)' }}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
           </svg>
-          <span>添加参数 Add Parameter</span>
+          {t('params.addParam')}
         </button>
       )}
     </div>
   )
 }
 
-export default URLParamsEditor 
- 
+export default URLParamsEditor

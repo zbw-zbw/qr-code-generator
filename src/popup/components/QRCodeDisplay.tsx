@@ -1,40 +1,52 @@
-import { QRCodeSVG } from 'qrcode.react'
-import { isValidUrl } from '@/utils/url'
+import { forwardRef, useRef, useImperativeHandle } from 'react'
+import { QRCodeCanvas } from 'qrcode.react'
+import { QRStyle } from '@/types'
 
 interface QRCodeDisplayProps {
   url: string
+  qrStyle: QRStyle
 }
 
-const QRCodeDisplay = ({ url }: QRCodeDisplayProps) => {
-  if (!url || !isValidUrl(url)) {
+const QRCodeDisplay = forwardRef<HTMLCanvasElement, QRCodeDisplayProps>(
+  ({ url, qrStyle }, ref) => {
+    const { fgColor, bgColor, logoSrc, logoSize, level } = qrStyle
+    const size = 240
+    const wrapperRef = useRef<HTMLDivElement>(null)
+
+    useImperativeHandle(ref, () => {
+      return wrapperRef.current?.querySelector('canvas') as HTMLCanvasElement
+    })
+
+    const imageSettings = logoSrc
+      ? { src: logoSrc, width: Math.round(size * logoSize / 100), height: Math.round(size * logoSize / 100), excavate: true }
+      : undefined
+
     return (
-      <div className="w-full bg-gray-50 rounded-xl p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-32 h-32 bg-white rounded-2xl mb-3 flex items-center justify-center mx-auto shadow-sm">
-            <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+      <div className="w-full rounded-2xl flex items-center justify-center py-6" style={{ background: 'var(--color-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)' }}>
+        {url ? (
+          <div key={url.slice(0, 30)} className="p-3 rounded-2xl animate-qr-in" style={{ backgroundColor: bgColor }}>
+            <div ref={wrapperRef}>
+              <QRCodeCanvas value={url} size={size} level={logoSrc ? 'H' : level}
+                fgColor={fgColor} bgColor={bgColor} includeMargin={false}
+                className="block rounded-xl" imageSettings={imageSettings} />
+            </div>
           </div>
-          <p className="text-sm text-gray-500 font-medium">请输入有效的 URL<br/>Please enter a valid URL</p>
-        </div>
+        ) : (
+          <div className="p-3 rounded-2xl animate-qr-in">
+            <div className="rounded-2xl flex items-center justify-center" style={{ width: size, height: size, background: 'var(--color-muted-bg)' }}>
+              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-muted)' }}>
+                <rect x="2" y="2" width="8" height="8" rx="1" strokeWidth="1" />
+                <rect x="14" y="2" width="8" height="8" rx="1" strokeWidth="1" />
+                <rect x="2" y="14" width="8" height="8" rx="1" strokeWidth="1" />
+                <path d="M14 14h2v2h-2zM16 16h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor" stroke="none" />
+              </svg>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
+)
 
-  return (
-    <div className="w-full bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 flex items-center justify-center">
-      <div className="bg-white p-3 rounded-xl shadow-md">
-        <QRCodeSVG
-          value={url}
-          size={240}
-          level="M"
-          includeMargin={false}
-          className="block"
-        />
-      </div>
-    </div>
-  )
-}
-
-export default QRCodeDisplay 
- 
+QRCodeDisplay.displayName = 'QRCodeDisplay'
+export default QRCodeDisplay
