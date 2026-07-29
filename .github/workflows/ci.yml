@@ -19,6 +19,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
+      # npm ci 失败时把错误尾部写入 annotation，便于免登录排查
       - name: Install dependencies
         run: |
           set -o pipefail
@@ -26,16 +27,6 @@ jobs:
             echo "::error::npm ci failed -> $(tail -c 900 npm-ci.log | tr '\n' ' ')"
             exit 1
           fi
-
-      # 诊断：确认工具链与本地 bin 是否就绪（排查 exit 127 类问题）
-      - name: Toolchain diagnostics
-        run: |
-          echo "node: $(node -v)  npm: $(npm -v)"
-          BINS=$(ls node_modules/.bin 2>/dev/null | tr '\n' ' ')
-          echo "bins: $BINS"
-          for b in eslint tsc vitest vite; do
-            [ -x "node_modules/.bin/$b" ] || echo "::error::missing local bin: $b"
-          done
 
       - name: Lint
         run: npm run lint
