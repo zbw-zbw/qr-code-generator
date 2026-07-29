@@ -41,7 +41,7 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   # tag 允许落后默认分支的最大提交数，超过即判定为倒打历史 tag
   TAG_RECENCY_WINDOW: '20'
 
