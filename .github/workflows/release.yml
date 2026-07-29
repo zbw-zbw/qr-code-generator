@@ -1,0 +1,180 @@
+# Release workflow for QR Code Generator（参考 image-harvest 的发布流程）
+#
+# 触发方式：推送 `v*.*.*` tag（例如 `git push origin v1.3.0`）。
+# 校验 tag 与 package.json 版本一致后，跑与 ci.yml 相同的质量门禁
+# （lint/type-check/test/build），将 dist/ 内容打成商店可直传的 zip，
+# 从 CHANGELOG.md 提取当前版本段落作为发布日志，自动创建 GitHub Release 并挂载 zip。
+#
+# 维护者本机的标准发布流：
+#   npm run release:patch   # bump 版本（自动同步 manifest.json）→ commit → tag → push
+#
+# 发布完成后到 GitHub Release 页面下载 zip，上传 Chrome Web Store 提交审核即可。
+name: Release
+
+on:
+  # tag 触发：推送 v*.*.* 即构建发布。下方守卫会拒绝给历史提交"倒打 tag"。
+  push:
+    tags:
+      - 'v*.*.*'
+
+  # 手动兜底入口：绕过 recency 守卫，用于在已知安全的历史 tag 上重跑发布。
+  # 入口：Actions 页 → Release workflow → Run workflow。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的已存在 tag（如 v1.3.0），必须已推送到仓库'
+        required: true
+        type: string
+      skip_recency_guard:
+        description: '跳过"tag 必须指向近期提交"守卫，仅在有意重发历史版本时使用'
+        required: false
+        type: boolean
+        default: false
+
+# 同一 tag 只允许一个发布任务，避免并发上传资产时互相覆盖
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  # softprops/action-gh-release 需要写权限来创建 Release 并上传资产
+  contents: write
+
+env:
+  NODE_VERSION: '20'
+  # tag 允许落后默认分支的最大提交数，超过即判定为倒打历史 tag
+  TAG_RECENCY_WINDOW: '20'
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not determine tag name"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 全量历史用于 recency 守卫遍历默认分支
+          fetch-depth: 0
+          ref: ${{ steps.ref.outputs.tag }}
+
+      # 防倒打 tag 守卫：tag 指向的提交若落后默认分支超过窗口值则拒绝发布，
+      # 避免用当前工具链重建数月前的代码却标成新版本号
+      - name: Verify tag points to a recent commit on the default branch
+        if: github.event_name != 'workflow_dispatch' || inputs.skip_recency_guard != true
+        run: |
+          TAG="${{ steps.ref.outputs.tag }}"
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch --no-tags --depth=${{ env.TAG_RECENCY_WINDOW }} \
+            origin "$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+
+          TAG_SHA="$(git rev-parse "$TAG^{commit}")"
+          if git merge-base --is-ancestor "$TAG_SHA" "origin/$DEFAULT_BRANCH"; then
+            DISTANCE="$(git rev-list --count "$TAG_SHA..origin/$DEFAULT_BRANCH")"
+            echo "Tag $TAG points to commit $TAG_SHA ($DISTANCE commits behind origin/$DEFAULT_BRANCH)"
+            if [ "$DISTANCE" -gt "${{ env.TAG_RECENCY_WINDOW }}" ]; then
+              echo "::error::Tag $TAG is $DISTANCE commits behind origin/$DEFAULT_BRANCH (max: ${{ env.TAG_RECENCY_WINDOW }}). Looks like a back-tagged historical release. If intentional, re-run via workflow_dispatch with skip_recency_guard=true."
+              exit 1
+            fi
+          else
+            echo "::error::Tag $TAG ($TAG_SHA) is not an ancestor of origin/$DEFAULT_BRANCH. Refusing to release."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tag 与 package.json 版本必须一致，否则扩展包内 manifest 版本会与 Release 名不符
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${{ steps.ref.outputs.tag }}"
+          TAG_VERSION="${TAG#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          MANIFEST="$(node -p "require('./src/manifest.json').version")"
+          echo "tag=$TAG_VERSION  package.json=$PKG  manifest.json=$MANIFEST"
+          if [ "$TAG_VERSION" != "$PKG" ] || [ "$TAG_VERSION" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG_VERSION, package.json $PKG and src/manifest.json $MANIFEST must all match"
+            exit 1
+          fi
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Chrome Web Store 要求 zip 顶层是文件而非目录，因此进入 dist/ 内打包
+      - name: Package extension zip
+        id: package
+        run: |
+          VERSION="${{ steps.ref.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          ZIP_NAME="qr-code-generator-v${VERSION}.zip"
+          (cd dist && zip -rq "../${ZIP_NAME}" . -x "*.map")
+          ls -lh "${ZIP_NAME}"
+          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload zip as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_name }}
+          retention-days: 90
+
+      # 从 CHANGELOG.md 提取当前版本段落作为 Release 正文
+      # （标题格式：`## vX.Y.Z - 日期 ...`，段落以 `---` 或下一个 `## v` 结束）
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          BODY=$(awk "/^## v${VERSION}([^0-9.]|$)/{found=1; next} found && /^(## v|---)/{exit} found{print}" CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            echo "No CHANGELOG entry found for v${VERSION}, falling back to auto-generated notes"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "body<<CHANGELOG_EOF"
+              echo "$BODY"
+              echo "CHANGELOG_EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ref.outputs.tag }}
+          name: ${{ steps.ref.outputs.tag }}
+          body: ${{ steps.changelog.outputs.found == 'true' && steps.changelog.outputs.body || '' }}
+          generate_release_notes: ${{ steps.changelog.outputs.found != 'true' }}
+          # -alpha / -beta / -rc 后缀自动标记为预发布
+          prerelease: ${{ contains(steps.ref.outputs.tag, '-') }}
+          files: ${{ steps.package.outputs.zip_name }}
+          fail_on_unmatched_files: true
