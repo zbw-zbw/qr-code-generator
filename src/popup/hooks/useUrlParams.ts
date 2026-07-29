@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { URLParam } from '@/types'
+import { parseParams, buildUrl } from '@/utils/urlParams'
 
 interface UseUrlParamsReturn {
   params: URLParam[]
@@ -8,51 +9,20 @@ interface UseUrlParamsReturn {
   rebuildURL: (baseUrl: string, newParams: URLParam[]) => string
 }
 
+// params 中的 key/value 均为 URL 原始（已编码）形态，保证往返不改写未编辑参数
 export function useUrlParams(initialParams: URLParam[] = []): UseUrlParamsReturn {
   const [params, setParams] = useState<URLParam[]>(initialParams)
 
   const parseURLParams = useCallback((url: string): URLParam[] => {
-    try {
-      const urlObj = new URL(url)
-      const searchParams = urlObj.searchParams
-      const paramsList: URLParam[] = []
-
-      searchParams.forEach((value, key) => {
-        try {
-          const decodedValue = decodeURIComponent(value)
-          paramsList.push({
-            key: decodeURIComponent(key),
-            value: decodedValue,
-          })
-        } catch {
-          paramsList.push({ key, value })
-        }
-      })
-
-      setParams(paramsList)
-      return paramsList
-    } catch {
-      setParams([])
-      return []
-    }
+    const paramsList = parseParams(url)
+    setParams(paramsList)
+    return paramsList
   }, [])
 
-  const rebuildURL = useCallback((baseUrl: string, newParams: URLParam[]): string => {
-    try {
-      const urlObj = new URL(baseUrl)
-      urlObj.search = ''
-
-      newParams.forEach((param) => {
-        if (param.key.trim() && param.value.trim()) {
-          urlObj.searchParams.append(param.key.trim(), param.value.trim())
-        }
-      })
-
-      return urlObj.toString()
-    } catch {
-      return baseUrl
-    }
-  }, [])
+  const rebuildURL = useCallback(
+    (baseUrl: string, newParams: URLParam[]): string => buildUrl(baseUrl, newParams),
+    []
+  )
 
   return { params, setParams, parseURLParams, rebuildURL }
 }

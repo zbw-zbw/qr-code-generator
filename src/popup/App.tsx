@@ -69,8 +69,9 @@ function AppInner() {
   const [contentType, setContentType] = useState<ContentType>('url')
   const [customContent, setCustomContent] = useState('')
   const [expandedSection, setExpandedSection] = useState<Section | null>(null)
+  const [formKey, setFormKey] = useState(0)
+  const [autoDecodeUrl, setAutoDecodeUrl] = useState('')
 
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const savedScrollRef = useRef(0)
   const { qrStyle, setQRStyle, resetStyle } = useQRStyle()
@@ -89,32 +90,38 @@ function AppInner() {
     if (typeof chrome === 'undefined' || !chrome.storage) return
     chrome.storage.local.get(['contextMenuData']).then(result => {
       if (!result.contextMenuData) return
-      const { text } = result.contextMenuData
+      const { text, type, ts } = result.contextMenuData
       chrome.storage.local.remove(['contextMenuData'])
       if (!text) return
-      setCurrentUrl(text); setOriginalUrl(text)
-      parseURLParams(text); setMode('generate'); setContentType('url')
+      // 忽略过期残留（如 openPopup 失败后遗留的旧数据）
+      if (ts && Date.now() - ts > 5 * 60_000) return
+      if (type === 'decodeImage') {
+        // 右键“解码此图片”：直接进入解码模式并自动解码
+        setMode('decode'); setDecodeResult(null); setDecodePreview('')
+        setAutoDecodeUrl(text)
+        return
+      }
+      setMode('generate')
+      if (type === 'text') {
+        setContentType('text'); setCustomContent(text); setFormKey(k => k + 1)
+      } else {
+        setContentType('url')
+        setCurrentUrl(text); setOriginalUrl(text); parseURLParams(text)
+      }
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const qrValue = contentType === 'url' ? currentUrl : customContent
   const debouncedQrValue = useDebounce(qrValue, 300)
-
-  const didMountRef = useRef(false)
-  useEffect(() => {
-    if (!didMountRef.current) { didMountRef.current = true; return }
-    if (!debouncedQrValue) return
-    addRecord(debouncedQrValue, qrStyle)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQrValue])
+  const effectiveLevel = qrStyle.logoSrc ? 'H' : qrStyle.level
 
   const toggleSection = (s: Section) =>
     setExpandedSection(prev => prev === s ? null : s)
 
-  // 从历史页返回时恢复滚动位置
+  // 从历史页返回时恢复滚动位置；选中记录时 savedScrollRef 已置 0，回到顶部方便直接扫码
   useEffect(() => {
-    if (!showHistory && scrollRef.current && savedScrollRef.current > 0) {
+    if (!showHistory && scrollRef.current) {
       requestAnimationFrame(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = savedScrollRef.current
       })
@@ -132,16 +139,20 @@ function AppInner() {
     if (c.startsWith('WIFI:'))            { setCustomContent(c); setContentType('wifi') }
     else if (c.startsWith('mailto:'))      { setCustomContent(c); setContentType('email') }
     else if (c.startsWith('tel:'))         { setCustomContent(c); setContentType('phone') }
-    else if (c.startsWith('smsto:'))       { setCustomContent(c); setContentType('sms') }
+    else if (c.startsWith('smsto:') || c.startsWith('sms:')) { setCustomContent(c); setContentType('sms') }
     else if (c.startsWith('BEGIN:VCARD')) { setCustomContent(c); setContentType('vcard') }
     else { setCurrentUrl(c); setOriginalUrl(c); parseURLParams(c); setContentType('url') }
     setQRStyle(record.qrStyle)
+    setFormKey(k => k + 1)
+    // 选中历史后回到顶部，让用户直接看到码图
+    savedScrollRef.current = 0
     setShowHistory(false)
   }
 
-  const handleDecodeSuccess = (result: DecodeResultType, preview: string) => {
+  const handleDecodeSuccess = (result: DecodeResultType, preview: string, thumbnail?: string) => {
     setDecodeResult(result); setDecodePreview(preview)
-    addDecodeRecord(result.content, result.type, preview)
+    // 历史只存本地缩略图，不存远程 URL，避免每次浏览历史都外联
+    addDecodeRecord(result.content, result.type, thumbnail)
   }
 
   const historyCount = mode === 'generate' ? records.length : decodeRecords.length
@@ -169,7 +180,7 @@ function AppInner() {
         {!showHistory && mode === 'generate' && (
           <>
             <div className="px-3 pt-1 pb-3">
-              <QRCodeDisplay url={debouncedQrValue} qrStyle={qrStyle} ref={canvasRef} />
+              <QRCodeDisplay url={debouncedQrValue} qrStyle={qrStyle} />
             </div>
 
             {showRestoreHint && cachedData && contentType === 'url' && (
@@ -202,8 +213,9 @@ function AppInner() {
             </div>
             <div className="px-3 pb-3">
               <LogoEditor logoSrc={qrStyle.logoSrc} logoSize={qrStyle.logoSize}
+                logoPadding={qrStyle.logoPadding} logoRadius={qrStyle.logoRadius}
                 onLogoChange={src => setQRStyle({ logoSrc: src })}
-                onSizeChange={size => setQRStyle({ logoSize: size })}
+                onChange={patch => setQRStyle(patch)}
                 expanded={expandedSection === 'logo'} onToggle={() => toggleSection('logo')} />
             </div>
             <div className="px-3 pb-2">
@@ -215,7 +227,7 @@ function AppInner() {
             {contentType === 'url' ? (
               <>
                 <div className="px-3 pb-3">
-                  <URLInput url={currentUrl} onChange={url => { setCurrentUrl(url); parseURLParams(url) }} />
+                  <URLInput url={currentUrl} level={effectiveLevel} onChange={url => { setCurrentUrl(url); parseURLParams(url) }} />
                 </div>
                 <div className="px-3 pb-3">
                   <URLParamsEditor params={params} onChange={newParams => {
@@ -224,21 +236,21 @@ function AppInner() {
                 </div>
               </>
             ) : (
-              <div className="px-3 pb-3">
-                {contentType === 'text'  && <TextForm  onChange={setCustomContent} />}
-                {contentType === 'wifi'  && <WiFiForm  onChange={setCustomContent} />}
-                {contentType === 'email' && <EmailForm onChange={setCustomContent} />}
-                {contentType === 'phone' && <PhoneForm onChange={setCustomContent} />}
-                {contentType === 'sms'   && <SMSForm   onChange={setCustomContent} />}
-                {contentType === 'vcard' && <VCardForm onChange={setCustomContent} />}
+              <div className="px-3 pb-3" key={formKey}>
+                {contentType === 'text'  && <TextForm  onChange={setCustomContent} initialValue={customContent} />}
+                {contentType === 'wifi'  && <WiFiForm  onChange={setCustomContent} initialValue={customContent} />}
+                {contentType === 'email' && <EmailForm onChange={setCustomContent} initialValue={customContent} />}
+                {contentType === 'phone' && <PhoneForm onChange={setCustomContent} initialValue={customContent} />}
+                {contentType === 'sms'   && <SMSForm   onChange={setCustomContent} initialValue={customContent} />}
+                {contentType === 'vcard' && <VCardForm onChange={setCustomContent} initialValue={customContent} />}
               </div>
             )}
 
             <div className="px-3 pb-4">
-              <ActionButtons url={qrValue}
+              <ActionButtons url={qrValue} qrStyle={qrStyle}
                 onReset={() => { setCurrentUrl(originalUrl); parseURLParams(originalUrl) }}
                 hasChanges={contentType === 'url' ? currentUrl !== originalUrl : !!customContent}
-                canvasRef={canvasRef} />
+                onExport={() => addRecord(qrValue, qrStyle)} />
             </div>
           </>
         )}
@@ -254,10 +266,9 @@ function AppInner() {
         {!showHistory && mode === 'decode' && (
           <div className="p-3 space-y-3">
             {!decodeResult ? (
-              <QRCodeDecoder onDecodeSuccess={handleDecodeSuccess} />
+              <QRCodeDecoder onDecodeSuccess={handleDecodeSuccess} autoDecodeUrl={autoDecodeUrl} />
             ) : (
               <DecodeResult result={decodeResult} previewUrl={decodePreview}
-                onCopy={() => navigator.clipboard.writeText(decodeResult.content)}
                 onOpenLink={() => decodeResult.type === 'url' && chrome.tabs.create({ url: decodeResult.content })}
                 onEditParams={() => {
                   if (decodeResult.type === 'url') {
@@ -278,6 +289,7 @@ function AppInner() {
             onSelect={r => {
               setDecodeResult({ content: r.content, type: r.type })
               setDecodePreview(r.previewUrl || '')
+              savedScrollRef.current = 0
               setShowHistory(false)
             }}
             onRemove={removeDecodeRecord}

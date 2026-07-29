@@ -38,11 +38,12 @@ const ContentTypeSelector = ({ value, onChange, expanded, onToggle }: {
           <div className="flex gap-1.5 flex-wrap">
             {TYPES.map(tp => (
               <button key={tp} onClick={() => onChange(tp)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-xl whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors ${
                   value === tp ? 'text-white shadow-sm' : 'hover:bg-[var(--color-muted-bg)]'
                 }`}
                 style={value === tp
-                  ? { background: 'var(--color-primary)' }
+                  // 选中态保留同宽边框，避免尺寸变化引起整行抖动
+                  ? { background: 'var(--color-primary)', border: '1px solid var(--color-primary)' }
                   : { color: 'var(--color-text-secondary)', background: 'var(--color-card)', border: '1px solid var(--color-border)' }}>
                 {t(LABEL_KEYS[tp])}
               </button>

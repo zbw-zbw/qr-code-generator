@@ -36,10 +36,11 @@
 - Seamless workflow across different pages
 
 ✅ **Privacy & Performance**
-- 100% offline - no data sent to servers
-- No ads, no tracking, no registration required
+- All QR generation & image decoding run 100% locally in your browser
+- No analytics, no ads, no tracking, no registration required
+- All data (history, styles) stored locally via chrome.storage, never uploaded
+- The only network access is the optional "decode from image URL" feature, which fetches the image you explicitly provide — nothing else ever leaves your device
 - Fast and lightweight
-- Works without internet connection
 
 **Perfect For:**
 - Developers testing URLs with different parameters
@@ -91,10 +92,11 @@
 - 跨页面无缝工作流程
 
 ✅ **隐私与性能**
-- 100%离线运行 - 不向服务器发送任何数据
-- 无广告、无追踪、无需注册
+- 二维码生成与图片解码 100% 在本地浏览器内完成
+- 无统计、无广告、无追踪、无需注册
+- 所有数据（历史、样式）仅存储在本地 chrome.storage，不会上传
+- 唯一的网络访问是可选的“在线图片地址解码”功能，仅拉取您主动提供的图片链接，除此之外没有任何数据离开您的设备
 - 快速轻量
-- 无需网络连接即可使用
 
 **适用场景：**
 - 开发者测试不同参数的URL
@@ -193,7 +195,7 @@ A: 是的，完全免费，无广告，无需注册。
 A: 支持PNG、JPG、WebP、SVG等所有常见格式。
 
 **Q: 需要联网吗？**
-A: 不需要，100%离线运行，保护您的隐私。
+A: 生成与解码均在本地完成，无需联网；仅当您使用“在线图片地址解码”时才会拉取您提供的图片链接。
 
 **Q: 可以编辑URL参数吗？**
 A: 可以！这是我们的独特功能，可视化编辑URL参数，无需手动输入。

@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "二维码生成器与扫描器 - Logo、离线、免费"
+  },
+  "appDesc": {
+    "message": "免费二维码生成与扫描：Logo 嵌入、自定义配色、URL 参数编辑、历史记录。本地处理，无广告，无需注册。"
+  },
+  "actionTitle": {
+    "message": "二维码生成器与扫描器"
+  }
+}

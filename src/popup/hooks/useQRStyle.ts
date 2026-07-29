@@ -6,6 +6,8 @@ const DEFAULT_STYLE: QRStyle = {
   bgColor: '#FFFFFF',
   logoSrc: null,
   logoSize: 20,
+  logoPadding: 8,
+  logoRadius: 20,
   level: 'M',
 }
 

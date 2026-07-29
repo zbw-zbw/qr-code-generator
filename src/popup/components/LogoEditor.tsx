@@ -1,16 +1,56 @@
 import { useState, useRef } from 'react'
+import { QRStyle } from '@/types'
 import { t } from '@/utils/i18n'
 
 interface LogoEditorProps {
   logoSrc: string | null
   logoSize: number
+  logoPadding: number
+  logoRadius: number
   onLogoChange: (src: string | null) => void
-  onSizeChange: (size: number) => void
+  onChange: (patch: Partial<QRStyle>) => void
   expanded: boolean
   onToggle: () => void
 }
 
-const LogoEditor = ({ logoSrc, logoSize, onLogoChange, onSizeChange, expanded, onToggle }: LogoEditorProps) => {
+const RADIUS_OPTIONS = [
+  { value: 0, labelKey: 'logo.radius.none' },
+  { value: 20, labelKey: 'logo.radius.rounded' },
+  { value: 50, labelKey: 'logo.radius.circle' },
+] as const
+
+const PADDING_OPTIONS = [
+  { value: 0, labelKey: 'logo.padding.none' },
+  { value: 8, labelKey: 'logo.padding.thin' },
+  { value: 14, labelKey: 'logo.padding.thick' },
+] as const
+
+// 与内容类型/纠错等级 chip 同规范：选中态保留同宽边框避免抖动
+const ChipRow = ({ label, options, current, onSelect }: {
+  label: string
+  options: readonly { value: number; labelKey: string }[]
+  current: number
+  onSelect: (v: number) => void
+}) => (
+  <div className="flex items-center gap-2">
+    <span className="text-xs w-8 flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
+    <div className="flex gap-1.5 flex-1">
+      {options.map(o => (
+        <button key={o.value} onClick={() => onSelect(o.value)}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            current === o.value ? 'text-white shadow-sm' : 'hover:bg-[var(--color-muted-bg)]'
+          }`}
+          style={current === o.value
+            ? { background: 'var(--color-primary)', border: '1px solid var(--color-primary)' }
+            : { color: 'var(--color-text-secondary)', background: 'var(--color-card)', border: '1px solid var(--color-border)' }}>
+          {t(o.labelKey as Parameters<typeof t>[0])}
+        </button>
+      ))}
+    </div>
+  </div>
+)
+
+const LogoEditor = ({ logoSrc, logoSize, logoPadding, logoRadius, onLogoChange, onChange, expanded, onToggle }: LogoEditorProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -42,21 +82,27 @@ const LogoEditor = ({ logoSrc, logoSize, onLogoChange, onSizeChange, expanded, o
         <div className="min-h-0">
           <div className="pt-2.5">
             {logoSrc ? (
-              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--color-muted-bg)' }}>
-                <img src={logoSrc} className="w-10 h-10 rounded-xl object-contain flex-shrink-0"
-                  style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)' }} alt="logo" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>{t('logo.size')} {logoSize}%</span>
-                    <button onClick={() => onLogoChange(null)}
-                      className="text-xs font-medium" style={{ color: 'var(--color-error)' }}>
-                      {t('logo.remove')}
-                    </button>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--color-muted-bg)' }}>
+                  <img src={logoSrc} className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+                    style={{ border: '1px solid var(--color-border)' }} alt="logo" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text)' }}>{t('logo.size')} {logoSize}%</span>
+                      <button onClick={() => onLogoChange(null)}
+                        className="text-xs font-medium" style={{ color: 'var(--color-error)' }}>
+                        {t('logo.remove')}
+                      </button>
+                    </div>
+                    <input type="range" min={10} max={35} value={logoSize}
+                      onChange={e => onChange({ logoSize: Number(e.target.value) })}
+                      className="w-full h-1.5 mt-1.5" style={{ accentColor: 'var(--color-primary)' }} />
                   </div>
-                  <input type="range" min={10} max={35} value={logoSize}
-                    onChange={e => onSizeChange(Number(e.target.value))}
-                    className="w-full h-1.5 mt-1.5" style={{ accentColor: 'var(--color-primary)' }} />
                 </div>
+                <ChipRow label={t('logo.radius')} options={RADIUS_OPTIONS} current={logoRadius}
+                  onSelect={v => onChange({ logoRadius: v })} />
+                <ChipRow label={t('logo.padding')} options={PADDING_OPTIONS} current={logoPadding}
+                  onSelect={v => onChange({ logoPadding: v })} />
               </div>
             ) : (
               <div

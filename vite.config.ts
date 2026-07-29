@@ -21,10 +21,10 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       port: 5173
     },
+    // @crxjs 开发模式下扩展以 chrome-extension:// 源访问 dev server，
+    // 仅放行扩展协议来源，不使用通配 *
     cors: {
-      origin: "*",
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["*"]
+      origin: [/^chrome-extension:\/\//]
     }
   },
   optimizeDeps: {

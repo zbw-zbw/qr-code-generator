@@ -5,10 +5,30 @@ import { DecodeResult } from '@/types'
 import { t } from '@/utils/i18n'
 
 interface QRCodeDecoderProps {
-  onDecodeSuccess: (result: DecodeResult, previewUrl: string) => void
+  onDecodeSuccess: (result: DecodeResult, previewUrl: string, thumbnail?: string) => void
+  // 右键菜单“解码此图片”传入，自动解码
+  autoDecodeUrl?: string
 }
 
-const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess }) => {
+// 防止超大图 getImageData 内存暴涨拖垮 popup
+const MAX_DECODE_DIM = 2000
+const THUMB_DIM = 200
+
+// 生成小体积的本地缩略图用于历史记录（不存远程 URL）
+const makeThumbnail = (source: HTMLCanvasElement): string | undefined => {
+  try {
+    const scale = Math.min(1, THUMB_DIM / Math.max(source.width, source.height))
+    const c = document.createElement('canvas')
+    c.width = Math.max(1, Math.round(source.width * scale))
+    c.height = Math.max(1, Math.round(source.height * scale))
+    c.getContext('2d')!.drawImage(source, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.8)
+  } catch {
+    return undefined
+  }
+}
+
+const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess, autoDecodeUrl }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [imageUrl, setImageUrl] = useState('')
@@ -19,18 +39,29 @@ const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess }) => {
 
   const decodeImage = useCallback((img: HTMLImageElement, preview: string) => {
     if (!canvasRef.current) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    canvas.width = img.width; canvas.height = img.height
-    ctx.drawImage(img, 0, 0)
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const code = jsQR(imageData.data, imageData.width, imageData.height)
-    if (code) {
-      onDecodeSuccess({ content: code.data, type: isValidUrl(code.data) ? 'url' : 'text' }, preview)
-      setError('')
-    } else {
-      setError(t('decode.noQrCode'))
+    try {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const w = img.naturalWidth || img.width
+      const h = img.naturalHeight || img.height
+      if (!w || !h) { setError(t('decode.loadFailed')); return }
+      // 超大图降采样后再识别
+      const scale = Math.min(1, MAX_DECODE_DIM / Math.max(w, h))
+      canvas.width = Math.round(w * scale)
+      canvas.height = Math.round(h * scale)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height)
+      if (code) {
+        onDecodeSuccess({ content: code.data, type: isValidUrl(code.data) ? 'url' : 'text' }, preview, makeThumbnail(canvas))
+        setError('')
+      } else {
+        setError(t('decode.noQrCode'))
+      }
+    } catch {
+      // 0×0 SVG、内存不足等异常不应击穿到 ErrorBoundary
+      setError(t('decode.loadFailed'))
     }
   }, [onDecodeSuccess])
 
@@ -60,16 +91,29 @@ const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess }) => {
     }
   }, [handleFileUpload])
 
-  const handleUrlDecode = () => {
-    const url = imageUrl.trim()
-    if (!url) { setError(t('decode.enterUrl')); return }
+  const decodeFromUrl = useCallback((url: string) => {
     setIsLoading(true); setError(''); setPreviewSrc(url)
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => { decodeImage(img, url); setIsLoading(false) }
     img.onerror = () => { setError(t('decode.corsError')); setIsLoading(false); setPreviewSrc('') }
     img.src = url
+  }, [decodeImage])
+
+  const handleUrlDecode = () => {
+    const url = imageUrl.trim()
+    if (!url) { setError(t('decode.enterUrl')); return }
+    decodeFromUrl(url)
   }
+
+  // 右键菜单入口：自动填入地址并解码
+  React.useEffect(() => {
+    if (autoDecodeUrl) {
+      setImageUrl(autoDecodeUrl)
+      decodeFromUrl(autoDecodeUrl)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDecodeUrl])
 
   const handleClear = () => {
     setPreviewSrc(''); setError(''); setImageUrl('')
@@ -83,10 +127,10 @@ const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess }) => {
 
   return (
     <div className="space-y-3">
-      {/* 图片预览 */}
+      {/* 图片预览 — 与解码结果页预览样式保持一致 */}
       {previewSrc && (
-        <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)', background: 'var(--color-muted-bg)' }}>
-          <img src={previewSrc} alt="preview" className="w-full max-h-48 object-contain" />
+        <div className="relative rounded-xl p-3 flex items-center justify-center" style={{ border: '1px solid var(--color-border)', background: 'var(--color-muted-bg)' }}>
+          <img src={previewSrc} alt="preview" className="max-h-40 max-w-full object-contain rounded-lg" />
           <button onClick={handleClear}
             className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors">
             <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +138,7 @@ const QRCodeDecoder: React.FC<QRCodeDecoderProps> = ({ onDecodeSuccess }) => {
             </svg>
           </button>
           {isLoading && (
-            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-xl bg-white/70 flex items-center justify-center">
               <div className="loading-spinner w-6 h-6" />
             </div>
           )}

@@ -15,6 +15,10 @@ export interface QRStyle {
   bgColor: string
   logoSrc: string | null
   logoSize: number
+  // 白边宽度（占 logo 盒子的百分比）0/8/14
+  logoPadding: number
+  // 圆角半径（占 logo 盒子的百分比）0/20/50，50 为圆形
+  logoRadius: number
   level: QRLevel
 }
 

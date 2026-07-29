@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { URLParam } from '@/types'
+import { safeDecode } from '@/utils/urlParams'
 import { t } from '@/utils/i18n'
 
 function isJSON(value: string): boolean {
@@ -19,14 +20,20 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
   const [jsonError, setJsonError] = useState(false)
   const [newParam, setNewParam] = useState({ key: '', value: '' })
   const [showAddForm, setShowAddForm] = useState(false)
+  // 记录编辑前的原始（编码）值与展示值：未修改的部分保留原始编码形态
+  const editOriginRef = useRef({ rawKey: '', rawValue: '', shownKey: '', shownValue: '' })
 
   const startEdit = (index: number) => {
     const p = params[index]
-    const complex = isJSON(p.value)
+    const decodedKey = safeDecode(p.key)
+    const decodedValue = safeDecode(p.value)
+    const complex = isJSON(decodedValue)
+    const shownValue = complex ? formatJSON(decodedValue) : decodedValue
+    editOriginRef.current = { rawKey: p.key, rawValue: p.value, shownKey: decodedKey, shownValue }
     setEditingIndex(index)
     setEditIsComplex(complex)
     setJsonError(false)
-    setEditingValues({ key: p.key, value: complex ? formatJSON(p.value) : p.value })
+    setEditingValues({ key: decodedKey, value: shownValue })
   }
 
   const handleValueChange = (val: string) => {
@@ -37,13 +44,17 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
   }
 
   const saveEdit = () => {
-    if (editingIndex !== null) {
+    if (editingIndex !== null && editingValues.key.trim()) {
+      const origin = editOriginRef.current
       const next = [...params]
       let val = editingValues.value
       if (editIsComplex && !jsonError) {
         try { val = JSON.stringify(JSON.parse(val)) } catch { /* keep */ }
       }
-      next[editingIndex] = { key: editingValues.key, value: val }
+      // 未改动则保留原始编码形态，改动才重新编码
+      const rawKey = editingValues.key === origin.shownKey ? origin.rawKey : encodeURIComponent(editingValues.key.trim())
+      const rawValue = editingValues.value === origin.shownValue ? origin.rawValue : encodeURIComponent(val)
+      next[editingIndex] = { key: rawKey, value: rawValue }
       onChange(next)
     }
     setEditingIndex(null)
@@ -61,7 +72,7 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
     if (newParam.key.trim()) {
       let val = newParam.value.trim()
       if (isJSON(val)) try { val = JSON.stringify(JSON.parse(val)) } catch { /* keep */ }
-      onChange([...params, { key: newParam.key.trim(), value: val }])
+      onChange([...params, { key: encodeURIComponent(newParam.key.trim()), value: encodeURIComponent(val) }])
       setNewParam({ key: '', value: '' })
       setShowAddForm(false)
     }
@@ -114,7 +125,7 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Value</label>
                     {editIsComplex && jsonError && (
-                      <span className="text-xs" style={{ color: 'var(--color-error)' }}>JSON 格式无效</span>
+                      <span className="text-xs" style={{ color: 'var(--color-error)' }}>{t('params.jsonInvalid')}</span>
                     )}
                   </div>
                   <textarea value={editingValues.value}
@@ -132,8 +143,8 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
                     style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>
                     {t('params.cancel')}
                   </button>
-                  <button onClick={saveEdit}
-                    className="px-2.5 py-1 text-xs font-medium text-white rounded-xl hover:opacity-90 transition-colors"
+                  <button onClick={saveEdit} disabled={!editingValues.key.trim()}
+                    className="px-2.5 py-1 text-xs font-medium text-white rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-colors"
                     style={{ background: 'var(--color-primary)' }}>
                     {t('params.save')}
                   </button>
@@ -142,7 +153,7 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
             ) : (
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-semibold break-all" style={{ color: 'var(--color-text)' }}>{param.key}</span>
+                  <span className="text-xs font-mono font-semibold break-all" style={{ color: 'var(--color-text)' }}>{safeDecode(param.key)}</span>
                   <div className="flex gap-0.5 flex-shrink-0 ml-2">
                     {iconBtn(() => startEdit(index),
                       "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
@@ -152,22 +163,22 @@ const URLParamsEditor = ({ params, onChange }: { params: URLParam[]; onChange: (
                       'var(--color-error)', t('params.delete'))}
                   </div>
                 </div>
-                {isJSON(param.value) ? (
-                  <pre className="text-xs font-mono break-all whitespace-pre-wrap w-full mt-1.5 p-2.5 rounded-xl leading-relaxed"
-                    style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                    {formatJSON(param.value)}
-                  </pre>
-                ) : (() => {
-                  try {
-                    const decoded = decodeURIComponent(param.value)
-                    if (decoded !== param.value) return (
-                      <div className="flex items-start gap-1.5 flex-wrap mt-1">
-                        <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium flex-shrink-0"
-                          style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-muted)' }}>{t('params.decoded')}</span>
-                        <span className="text-xs font-mono break-all whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{decoded}</span>
-                      </div>
-                    )
-                  } catch { /* noop */ }
+                {(() => {
+                  // value 为原始编码形态，展示前仅解码一次
+                  const decoded = safeDecode(param.value)
+                  if (isJSON(decoded)) return (
+                    <pre className="text-xs font-mono break-all whitespace-pre-wrap w-full mt-1.5 p-2.5 rounded-xl leading-relaxed"
+                      style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                      {formatJSON(decoded)}
+                    </pre>
+                  )
+                  if (decoded !== param.value) return (
+                    <div className="flex items-start gap-1.5 flex-wrap mt-1">
+                      <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium flex-shrink-0"
+                        style={{ background: 'var(--color-muted-bg)', color: 'var(--color-text-muted)' }}>{t('params.decoded')}</span>
+                      <span className="text-xs font-mono break-all whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>{decoded}</span>
+                    </div>
+                  )
                   return (
                     <p className="text-xs font-mono break-all mt-1" style={{ color: 'var(--color-text-secondary)' }}>{param.value}</p>
                   )

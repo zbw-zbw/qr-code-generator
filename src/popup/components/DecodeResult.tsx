@@ -1,20 +1,34 @@
 import React, { useState } from 'react'
 import { DecodeResult as DecodeResultType } from '@/types'
 import SafetyModal from './SafetyModal'
+import { copyToClipboard } from '@/utils/chrome'
+import { useToast } from '../context/ToastContext'
 import { t } from '@/utils/i18n'
 
 interface DecodeResultProps {
   result: DecodeResultType
   previewUrl?: string
-  onCopy: () => void
   onOpenLink: () => void
   onEditParams: () => void
   onReDecode: () => void
 }
 
-const DecodeResult: React.FC<DecodeResultProps> = ({ result, previewUrl, onCopy, onOpenLink, onEditParams, onReDecode }) => {
+const DecodeResult: React.FC<DecodeResultProps> = ({ result, previewUrl, onOpenLink, onEditParams, onReDecode }) => {
   const { content, type } = result
   const [showSafety, setShowSafety] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const { showToast } = useToast()
+
+  // 与生成页复制按钮一致：toast + 短暂 ✓ 反馈
+  const handleCopy = async () => {
+    if (await copyToClipboard(content)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      showToast(t('result.copied'))
+    } else {
+      showToast(t('action.copyFailed'), 'error')
+    }
+  }
 
   let urlDetails: { protocol: string; hostname: string; path: string; paramCount: number; params: { key: string; value: string }[] } | null = null
   if (type === 'url') {
@@ -33,12 +47,13 @@ const DecodeResult: React.FC<DecodeResultProps> = ({ result, previewUrl, onCopy,
     <>
       <div className="space-y-3">
         {previewUrl && (
-          <div className="rounded-xl overflow-hidden flex items-center justify-center" style={{ maxHeight: 160, border: '1px solid var(--color-border)', background: 'var(--color-muted-bg)' }}>
-            <img src={previewUrl} alt="decoded" className="max-h-40 w-full object-contain" />
+          <div className="rounded-xl p-3 flex items-center justify-center" style={{ border: '1px solid var(--color-border)', background: 'var(--color-muted-bg)' }}>
+            <img src={previewUrl} alt="decoded" className="max-h-36 max-w-full object-contain rounded-lg" />
           </div>
         )}
 
-        <div className="param-item space-y-3">
+        {/* 结果卡片非可点击项，不复用带 hover 反馈的 param-item */}
+        <div className="p-3 rounded-xl space-y-3" style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#DCFCE7' }}>
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--color-success)' }}>
@@ -92,13 +107,15 @@ const DecodeResult: React.FC<DecodeResultProps> = ({ result, previewUrl, onCopy,
           )}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={onCopy} className={btnPrimary} style={{ background: 'var(--color-primary)' }}>{t('result.copy')}</button>
+          <button onClick={handleCopy} className={btnPrimary} style={{ background: 'var(--color-primary)' }}>
+            {copied ? '✓' : t('result.copy')}
+          </button>
           {type === 'url' && <button onClick={() => setShowSafety(true)} className={btnSecondary}
             style={{ color: 'var(--color-text)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>{t('result.open')}</button>}
           {type === 'url' && <button onClick={onEditParams} className={btnSecondary}
             style={{ color: 'var(--color-text)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>{t('result.edit')}</button>}
-          <button onClick={onReDecode} className="py-2 px-3 text-xs font-medium transition-colors rounded-xl"
-            style={{ color: 'var(--color-text-muted)' }}>{t('result.retry')}</button>
+          <button onClick={onReDecode} className={btnSecondary}
+            style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', background: 'var(--color-card)' }}>{t('result.retry')}</button>
         </div>
       </div>
       {showSafety && <SafetyModal url={content} onConfirm={() => { setShowSafety(false); onOpenLink() }} onCancel={() => setShowSafety(false)} />}

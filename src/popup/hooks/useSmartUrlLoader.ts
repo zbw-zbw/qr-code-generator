@@ -48,11 +48,7 @@ export function useSmartUrlLoader(
           if (cachedUrl && tabUrl === cachedUrl) {
             setCurrentUrl(cachedUrl)
             setOriginalUrl(cachedUrl)
-            if (cachedParams.length > 0) {
-              onUrlLoaded(cachedUrl)
-            } else {
-              onUrlLoaded(cachedUrl)
-            }
+            onUrlLoaded(cachedUrl)
           } else {
             setCurrentUrl(tabUrl)
             setOriginalUrl(tabUrl)
@@ -77,17 +73,20 @@ export function useSmartUrlLoader(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 缓存当前 URL 和参数
+  // 仅在存在未完成的编辑时缓存，避免把每个浏览过的 tab URL 都持久化到 storage
   useEffect(() => {
-    if (currentUrl && typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({
-        cachedUrl: currentUrl,
-        cachedParams: params,
-      }).catch((error) => {
-        console.error('Cache save failed:', error)
-      })
+    if (!currentUrl || typeof chrome === 'undefined' || !chrome.storage) return
+    if (currentUrl === originalUrl) {
+      chrome.storage.local.remove(['cachedUrl', 'cachedParams']).catch(() => {})
+      return
     }
-  }, [currentUrl, params])
+    chrome.storage.local.set({
+      cachedUrl: currentUrl,
+      cachedParams: params,
+    }).catch((error) => {
+      console.error('Cache save failed:', error)
+    })
+  }, [currentUrl, originalUrl, params])
 
   const restoreCached = useCallback(() => {
     if (cachedData) {

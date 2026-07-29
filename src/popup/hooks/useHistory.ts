@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HistoryRecord, QRStyle } from '@/types'
+import { useToast } from '../context/ToastContext'
+import { t } from '@/utils/i18n'
 
 const MAX_RECORDS = 50
 
 export function useHistory() {
   const [records, setRecords] = useState<HistoryRecord[]>([])
   const loadedRef = useRef(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     if (typeof chrome === 'undefined' || !chrome.storage) return
@@ -19,19 +22,22 @@ export function useHistory() {
 
   const persist = useCallback((next: HistoryRecord[]) => {
     if (typeof chrome === 'undefined' || !chrome.storage) return
-    chrome.storage.local.set({ qrHistory: next }).catch(() => {})
-  }, [])
+    // 写入失败（如配额已满）必须让用户感知，不能静默丢数据
+    chrome.storage.local.set({ qrHistory: next }).catch(() => {
+      showToast(t('storage.saveFailed'), 'error')
+    })
+  }, [showToast])
 
   const addRecord = useCallback((content: string, qrStyle: QRStyle) => {
     if (!content.trim()) return
     setRecords((prev) => {
-      // 同内容已在最近 → 不重复添加
-      if (prev[0]?.content === content) return prev
+      if (prev.slice(0, 5).some(r => r.content === content)) return prev
+      const { logoSrc: _logo, ...styleWithoutLogo } = qrStyle
       const record: HistoryRecord = {
         id: crypto.randomUUID(),
         content,
         timestamp: Date.now(),
-        qrStyle,
+        qrStyle: { ...styleWithoutLogo, logoSrc: null },
       }
       const next = [record, ...prev].slice(0, MAX_RECORDS)
       persist(next)
@@ -55,11 +61,13 @@ export function useHistory() {
   return { records, addRecord, removeRecord, clearAll }
 }
 
-// 工具函数：对记录按日期分组
+// 工具函数：对记录按日期分组（用日历日计算，避免 DST 时区偏移）
 export function groupRecordsByDate(records: HistoryRecord[]) {
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const yesterdayStart = todayStart - 86400000
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  const todayStart = d.getTime()
+  d.setDate(d.getDate() - 1)
+  const yesterdayStart = d.getTime()
 
   const today: HistoryRecord[] = []
   const yesterday: HistoryRecord[] = []

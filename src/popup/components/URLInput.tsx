@@ -1,19 +1,23 @@
 import { useEffect, useRef } from 'react'
 import { isValidUrl } from '@/utils/url'
+import { getByteLength, QR_BYTE_CAPACITY } from '@/utils/qrCapacity'
+import { QRLevel } from '@/types'
 import { t } from '@/utils/i18n'
-
-const MAX_QR_LENGTH = 2953
 
 interface URLInputProps {
   url: string
   onChange: (url: string) => void
+  level: QRLevel
 }
 
-const URLInput = ({ url, onChange }: URLInputProps) => {
+const URLInput = ({ url, onChange, level }: URLInputProps) => {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isValid = !url || isValidUrl(url)
   const isText = !!url && !isValidUrl(url)
-  const isTooLong = url.length > MAX_QR_LENGTH
+  // QR 按 UTF-8 字节编码，按实际纠错等级的容量校验
+  const byteLength = getByteLength(url)
+  const capacity = QR_BYTE_CAPACITY[level]
+  const isTooLong = byteLength > capacity
 
   useEffect(() => {
     if (inputRef.current) {
@@ -61,7 +65,7 @@ const URLInput = ({ url, onChange }: URLInputProps) => {
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
-          <span>{t('url.tooLong', { length: url.length, max: MAX_QR_LENGTH })}</span>
+          <span>{t('url.tooLong', { length: byteLength, max: capacity })}</span>
         </div>
       )}
 

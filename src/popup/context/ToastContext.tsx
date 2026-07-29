@@ -47,6 +47,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   )
 }
 
+// context 文件需同时导出 Provider 与 hook，fast-refresh 警告可安全忽略
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext)
   if (!ctx) throw new Error('useToast must be used within ToastProvider')
