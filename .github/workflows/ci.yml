@@ -20,16 +20,22 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          set -o pipefail
+          if ! npm ci 2>&1 | tee npm-ci.log; then
+            echo "::error::npm ci failed -> $(tail -c 900 npm-ci.log | tr '\n' ' ')"
+            exit 1
+          fi
 
       # 诊断：确认工具链与本地 bin 是否就绪（排查 exit 127 类问题）
       - name: Toolchain diagnostics
         run: |
           echo "node: $(node -v)  npm: $(npm -v)"
-          echo "--- local bins ---"
-          ls node_modules/.bin | grep -E '^(eslint|tsc|vitest|vite)$' || echo "expected bins MISSING"
-          echo "--- npm ls (top-level dev) ---"
-          npm ls --depth=0 2>&1 | head -40 || true
+          BINS=$(ls node_modules/.bin 2>/dev/null | tr '\n' ' ')
+          echo "bins: $BINS"
+          for b in eslint tsc vitest vite; do
+            [ -x "node_modules/.bin/$b" ] || echo "::error::missing local bin: $b"
+          done
 
       - name: Lint
         run: npm run lint
