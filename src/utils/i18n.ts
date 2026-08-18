@@ -133,6 +133,8 @@ const zh = {
   'restore.title': '检测到上次编辑的内容',
   'restore.restore': '恢复编辑',
   'restore.dismiss': '忽略',
+  'restore.expand': '展开',
+  'restore.collapse': '收起',
   // 错误
   'error.title': '出现了意外错误',
   'error.subtitle': '请尝试重新加载',
@@ -263,6 +265,8 @@ const en: typeof zh = {
   'restore.title': 'Previous Edit Detected',
   'restore.restore': 'Restore',
   'restore.dismiss': 'Dismiss',
+  'restore.expand': 'Expand',
+  'restore.collapse': 'Collapse',
   'error.title': 'An unexpected error occurred',
   'error.subtitle': 'Please try reloading',
   'error.reload': 'Reload',

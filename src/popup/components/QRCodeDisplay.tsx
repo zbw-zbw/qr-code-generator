@@ -25,7 +25,7 @@ const QRCodeDisplay = ({ url, qrStyle }: QRCodeDisplayProps) => {
   const poorContrast = !!url && !overflow && isPoorScanContrast(fgColor, bgColor)
 
   return (
-    <div className="w-full rounded-2xl flex flex-col items-center justify-center py-6" style={{ background: 'var(--color-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)' }}>
+    <div className="w-full rounded-2xl flex flex-col items-center justify-center py-4" style={{ background: 'var(--color-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)' }}>
       {url && !overflow ? (
         <div key={url} className="p-3 rounded-2xl animate-qr-in" style={{ backgroundColor: bgColor }}>
           <div className="relative">

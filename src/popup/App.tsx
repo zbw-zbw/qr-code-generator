@@ -74,6 +74,7 @@ function AppInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const savedScrollRef = useRef(0)
+  const [restoreExpanded, setRestoreExpanded] = useState(false)
   const { qrStyle, setQRStyle, resetStyle } = useQRStyle()
   const { records, addRecord, removeRecord, clearAll } = useHistory()
   const { records: decodeRecords, addRecord: addDecodeRecord, removeRecord: removeDecodeRecord, clearAll: clearDecodeAll } = useDecodeHistory()
@@ -171,7 +172,7 @@ function AppInner() {
 
         {/* 内容区右上角：历史按钮（浮于内容顶部） */}
         {!showHistory && (
-          <div className="flex justify-end px-3 pt-3 pb-2">
+          <div className="flex justify-end px-3 pt-2 pb-1">
             <HistoryBtn count={historyCount} onClick={() => { savedScrollRef.current = scrollRef.current?.scrollTop || 0; setShowHistory(true) }} />
           </div>
         )}
@@ -183,41 +184,41 @@ function AppInner() {
               <QRCodeDisplay url={debouncedQrValue} qrStyle={qrStyle} />
             </div>
 
+            {/* 恢复提示：单行紧凑横幅，点击 ⌄ 展开查看完整 URL */}
             {showRestoreHint && cachedData && contentType === 'url' && (
-              <div className="mx-3 mb-3 p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[var(--color-primary)] flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <div className="mx-3 mb-2 px-2.5 py-1.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-[var(--color-primary)] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[var(--color-text)] mb-1">{t('restore.title')}</p>
-                    <p className="text-xs text-[var(--color-text-secondary)] break-all font-mono mb-2">{cachedData.url}</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => { restoreCached(); if (cachedData) setParams(cachedData.params) }}
-                        className="px-3 py-1 text-xs font-medium text-white bg-[var(--color-primary)] rounded-lg hover:opacity-90 transition-colors">
-                        {t('restore.restore')}
-                      </button>
-                      <button onClick={dismissRestore}
-                        className="px-3 py-1 text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-muted-bg)] transition-colors">
-                        {t('restore.dismiss')}
-                      </button>
-                    </div>
-                  </div>
+                  <p className={`flex-1 min-w-0 text-xs text-[var(--color-text-secondary)] ${restoreExpanded ? '' : 'truncate'}`}
+                    title={restoreExpanded ? undefined : `${t('restore.title')}: ${cachedData.url}`}>
+                    {t('restore.title')}<span className="font-mono"> · {cachedData.url}</span>
+                  </p>
+                  <button onClick={() => { restoreCached(); if (cachedData) setParams(cachedData.params) }}
+                    className="flex-shrink-0 px-2 py-0.5 text-xs font-medium text-white bg-[var(--color-primary)] rounded-md hover:opacity-90 transition-colors">
+                    {t('restore.restore')}
+                  </button>
+                  <button onClick={() => setRestoreExpanded(v => !v)} aria-label={restoreExpanded ? t('restore.collapse') : t('restore.expand')} title={restoreExpanded ? t('restore.collapse') : t('restore.expand')}
+                    className="flex-shrink-0 p-0.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-muted-bg)] transition-colors">
+                    <svg className={`w-3.5 h-3.5 transition-transform ${restoreExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <button onClick={dismissRestore} aria-label={t('restore.dismiss')} title={t('restore.dismiss')}
+                    className="flex-shrink-0 p-0.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-muted-bg)] transition-colors">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
+                {restoreExpanded && (
+                  <p className="mt-1.5 text-xs text-[var(--color-text-secondary)] font-mono break-all select-all">{cachedData.url}</p>
+                )}
               </div>
             )}
 
-            <div className="px-3 pb-3">
-              <QRStyleEditor qrStyle={qrStyle} onChange={setQRStyle} onReset={resetStyle}
-                expanded={expandedSection === 'style'} onToggle={() => toggleSection('style')} />
-            </div>
-            <div className="px-3 pb-3">
-              <LogoEditor logoSrc={qrStyle.logoSrc} logoSize={qrStyle.logoSize}
-                logoPadding={qrStyle.logoPadding} logoRadius={qrStyle.logoRadius}
-                onLogoChange={src => setQRStyle({ logoSrc: src })}
-                onChange={patch => setQRStyle(patch)}
-                expanded={expandedSection === 'logo'} onToggle={() => toggleSection('logo')} />
-            </div>
+            {/* 内容输入区上移：打开弹窗即可见输入框，直接粘贴链接无需滚动；样式/Logo 属次要设置后置 */}
             <div className="px-3 pb-2">
               <ContentTypeSelector value={contentType}
                 onChange={type => { setContentType(type); setCustomContent('') }}
@@ -245,6 +246,18 @@ function AppInner() {
                 {contentType === 'vcard' && <VCardForm onChange={setCustomContent} initialValue={customContent} />}
               </div>
             )}
+
+            <div className="px-3 pb-3">
+              <QRStyleEditor qrStyle={qrStyle} onChange={setQRStyle} onReset={resetStyle}
+                expanded={expandedSection === 'style'} onToggle={() => toggleSection('style')} />
+            </div>
+            <div className="px-3 pb-3">
+              <LogoEditor logoSrc={qrStyle.logoSrc} logoSize={qrStyle.logoSize}
+                logoPadding={qrStyle.logoPadding} logoRadius={qrStyle.logoRadius}
+                onLogoChange={src => setQRStyle({ logoSrc: src })}
+                onChange={patch => setQRStyle(patch)}
+                expanded={expandedSection === 'logo'} onToggle={() => toggleSection('logo')} />
+            </div>
 
             <div className="px-3 pb-4">
               <ActionButtons url={qrValue} qrStyle={qrStyle}
